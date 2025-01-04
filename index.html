@@ -25,26 +25,40 @@
             color: #333;
             text-align: center;
         }
-        #dropZone {
-            width: 100%;
-            padding: 40px 0;
+        .upload-area {
             border: 2px dashed #ccc;
-            border-radius: 4px;
+            padding: 20px;
             text-align: center;
+            margin-bottom: 20px;
+            border-radius: 8px;
             background-color: #fafafa;
             cursor: pointer;
-            transition: all 0.3s ease;
+            position: relative;
         }
-        #dropZone.dragover {
-            background-color: #e1f5fe;
-            border-color: #2196f3;
+        .upload-area:hover {
+            background-color: #f0f0f0;
+            border-color: #999;
         }
-        #dropZone.error {
-            background-color: #ffebee;
-            border-color: #f44336;
+        .file-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .file-button:hover {
+            background-color: #45a049;
         }
         #fileInput {
-            display: none;
+            opacity: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
         }
         #convertButton {
             width: 100%;
@@ -55,10 +69,7 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
-            transition: background-color 0.3s ease;
-        }
-        #convertButton:hover {
-            background-color: #45a049;
+            margin-top: 20px;
         }
         #convertButton:disabled {
             background-color: #cccccc;
@@ -72,24 +83,41 @@
             border-radius: 4px;
             font-family: monospace;
             resize: vertical;
-            background-color: #f8f9fa;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            display: none;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        #selectedFile {
+            margin-top: 10px;
+            color: #666;
         }
         .loading {
             display: none;
             text-align: center;
             margin: 10px 0;
         }
-        .error-message {
-            color: #f44336;
-            margin: 10px 0;
-            text-align: center;
-            display: none;
+        .loading:after {
+            content: '...';
+            animation: dots 1.5s steps(5, end) infinite;
         }
-        .success-message {
-            color: #4CAF50;
-            margin: 10px 0;
-            text-align: center;
-            display: none;
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80% { content: '....'; }
+            100% { content: '.....'; }
         }
     </style>
 </head>
@@ -98,19 +126,17 @@
         <h1>MIDI to VPSheets Converter</h1>
         
         <div class="section">
-            <div id="dropZone" onclick="document.getElementById('fileInput').click()">
-                <p>Drop MIDI file here or click to select</p>
-                <p style="font-size: 0.8em; color: #666;">Supported formats: .mid, .midi</p>
+            <div class="upload-area">
+                <input type="file" id="fileInput" accept=".mid,.midi">
+                <p>Drop your MIDI file here<br>or</p>
+                <div class="file-button">Choose File</div>
+                <div id="selectedFile"></div>
             </div>
-            <input type="file" id="fileInput" accept=".mid,.midi">
         </div>
-        
-        <div class="section">
-            <button id="convertButton" disabled>Convert MIDI</button>
-            <div id="loading" class="loading">Converting...</div>
-            <div id="errorMessage" class="error-message"></div>
-            <div id="successMessage" class="success-message"></div>
-        </div>
+
+        <button id="convertButton" disabled>Convert MIDI</button>
+        <div id="loading" class="loading">Converting</div>
+        <div id="status" class="status"></div>
         
         <div class="section">
             <textarea id="output" readonly placeholder="Converted MIDI will appear here..."></textarea>
@@ -118,62 +144,68 @@
     </div>
 
     <script>
-        const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
+        const selectedFile = document.getElementById('selectedFile');
         const convertButton = document.getElementById('convertButton');
         const output = document.getElementById('output');
         const loading = document.getElementById('loading');
-        const errorMessage = document.getElementById('errorMessage');
-        const successMessage = document.getElementById('successMessage');
+        const status = document.getElementById('status');
 
         // Replace with your PythonAnywhere username
         const BACKEND_URL = 'https://PandaPiano.pythonanywhere.com/api/convert-midi';
 
-        // Drag and drop handlers
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('dragover');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            handleFiles(e.dataTransfer.files);
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
-        });
-
-        function handleFiles(files) {
-            const file = files[0];
-            if (!file) return;
-
-            if (!file.name.toLowerCase().match(/\.(mid|midi)$/)) {
-                showError('Please select a MIDI file (.mid or .midi)');
-                dropZone.classList.add('error');
-                return;
-            }
-
-            dropZone.classList.remove('error');
-            convertButton.disabled = false;
-            errorMessage.style.display = 'none';
-            successMessage.style.display = 'none';
-            output.value = '';
-            dropZone.querySelector('p').textContent = `Selected: ${file.name}`;
+        function showStatus(message, isError = false) {
+            status.textContent = message;
+            status.className = 'status ' + (isError ? 'error' : 'success');
+            status.style.display = 'block';
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
         }
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (!file.name.toLowerCase().match(/\.(mid|midi)$/)) {
+                    showStatus('Please select a MIDI file (.mid or .midi)', true);
+                    convertButton.disabled = true;
+                    selectedFile.textContent = '';
+                    return;
+                }
+                selectedFile.textContent = 'Selected: ' + file.name;
+                convertButton.disabled = false;
+                showStatus('File selected: ' + file.name);
+            }
+        });
+
+        // Drag and drop support
+        const uploadArea = document.querySelector('.upload-area');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.backgroundColor = '#e3f2fd';
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.backgroundColor = '#fafafa';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.backgroundColor = '#fafafa';
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                fileInput.files = e.dataTransfer.files;
+                const event = new Event('change');
+                fileInput.dispatchEvent(event);
+            }
+        });
 
         convertButton.addEventListener('click', async () => {
             const file = fileInput.files[0];
             if (!file) return;
 
             loading.style.display = 'block';
-            errorMessage.style.display = 'none';
-            successMessage.style.display = 'none';
             convertButton.disabled = true;
             output.value = '';
 
@@ -193,26 +225,14 @@
                 }
 
                 output.value = data.result;
-                showSuccess('Conversion successful!');
+                showStatus('Conversion successful!');
             } catch (err) {
-                showError(err.message || 'Error converting MIDI file. Please try again.');
+                showStatus(err.message || 'Error converting MIDI file. Please try again.', true);
             } finally {
                 loading.style.display = 'none';
                 convertButton.disabled = false;
             }
         });
-
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
-            successMessage.style.display = 'none';
-        }
-
-        function showSuccess(message) {
-            successMessage.textContent = message;
-            successMessage.style.display = 'block';
-            errorMessage.style.display = 'none';
-        }
     </script>
 </body>
 </html>
