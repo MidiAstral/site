@@ -1,84 +1,218 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MIDI File Converter</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
-    }
-    #result {
-      width: 80%;
-      height: 300px;
-      margin-top: 20px;
-      border: 1px solid #ccc;
-      padding: 10px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      background-color: #f9f9f9;
-    }
-    input[type="file"] {
-      margin: 20px 0;
-    }
-    button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      background-color: #007BFF;
-      color: white;
-      border: none;
-      border-radius: 5px;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIDI to VPSheets Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        #dropZone {
+            width: 100%;
+            padding: 40px 0;
+            border: 2px dashed #ccc;
+            border-radius: 4px;
+            text-align: center;
+            background-color: #fafafa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #dropZone.dragover {
+            background-color: #e1f5fe;
+            border-color: #2196f3;
+        }
+        #dropZone.error {
+            background-color: #ffebee;
+            border-color: #f44336;
+        }
+        #fileInput {
+            display: none;
+        }
+        #convertButton {
+            width: 100%;
+            padding: 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        #convertButton:hover {
+            background-color: #45a049;
+        }
+        #convertButton:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #output {
+            width: 100%;
+            height: 300px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+            resize: vertical;
+            background-color: #f8f9fa;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .error-message {
+            color: #f44336;
+            margin: 10px 0;
+            text-align: center;
+            display: none;
+        }
+        .success-message {
+            color: #4CAF50;
+            margin: 10px 0;
+            text-align: center;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-  <h1>MIDI File Converter</h1>
-  <p>Upload your MIDI file, and we’ll convert it into a readable text format.</p>
-  <input type="file" id="midiFile" accept=".mid,.midi">
-  <br>
-  <button id="convertButton">Convert MIDI</button>
-  <div id="result">Converted MIDI text will appear here...</div>
+    <div class="container">
+        <h1>MIDI to VPSheets Converter</h1>
+        
+        <div class="section">
+            <div id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p>Drop MIDI file here or click to select</p>
+                <p style="font-size: 0.8em; color: #666;">Supported formats: .mid, .midi</p>
+            </div>
+            <input type="file" id="fileInput" accept=".mid,.midi">
+        </div>
+        
+        <div class="section">
+            <button id="convertButton" disabled>Convert MIDI</button>
+            <div id="loading" class="loading">Converting...</div>
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+        </div>
+        
+        <div class="section">
+            <textarea id="output" readonly placeholder="Converted MIDI will appear here..."></textarea>
+        </div>
+    </div>
 
-  <script>
-    document.getElementById('convertButton').addEventListener('click', async () => {
-      const fileInput = document.getElementById('midiFile');
-      
-      // Check if a file is selected
-      if (!fileInput.files.length) {
-        alert('Please select a MIDI file!');
-        return;
-      }
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const convertButton = document.getElementById('convertButton');
+        const output = document.getElementById('output');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
 
-      const midiFile = fileInput.files[0];  // Get the selected file
-      const formData = new FormData();
-      formData.append('midi', midiFile);
+        // Replace with your PythonAnywhere username
+        const BACKEND_URL = 'https://PandaPiano.pythonanywhere.com/api/convert-midi';
 
-      try {
-        // Send the file to the backend
-        const response = await fetch('PandaPiano.pythonanywhere.com/convert', {
-          method: 'POST',
-          body: formData,
+        // Drag and drop handlers
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
         });
 
-        if (!response.ok) {
-          throw new Error(`Error: ${response.statusText}`);
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            const file = files[0];
+            if (!file) return;
+
+            if (!file.name.toLowerCase().match(/\.(mid|midi)$/)) {
+                showError('Please select a MIDI file (.mid or .midi)');
+                dropZone.classList.add('error');
+                return;
+            }
+
+            dropZone.classList.remove('error');
+            convertButton.disabled = false;
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+            output.value = '';
+            dropZone.querySelector('p').textContent = `Selected: ${file.name}`;
         }
 
-        // Display the result
-        const result = await response.text();
-        document.getElementById('result').textContent = result;
-      } catch (error) {
-        // Handle errors
-        document.getElementById('result').textContent = `An error occurred: ${error.message}`;
-      }
-    });
-  </script>
+        convertButton.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            loading.style.display = 'block';
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+            convertButton.disabled = true;
+            output.value = '';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Conversion failed');
+                }
+
+                output.value = data.result;
+                showSuccess('Conversion successful!');
+            } catch (err) {
+                showError(err.message || 'Error converting MIDI file. Please try again.');
+            } finally {
+                loading.style.display = 'none';
+                convertButton.disabled = false;
+            }
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
+        }
+
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+        }
+    </script>
 </body>
 </html>
