@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MIDI File Converter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    #result {
+      width: 80%;
+      height: 300px;
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      background-color: #f9f9f9;
+    }
+    input[type="file"] {
+      margin: 20px 0;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <h1>MIDI File Converter</h1>
+  <p>Upload your MIDI file, and we’ll convert it into a readable text format.</p>
+  <input type="file" id="midiFile" accept=".mid,.midi">
+  <br>
+  <button id="convertButton">Convert MIDI</button>
+  <div id="result">Converted MIDI text will appear here...</div>
+
+  <script>
+    document.getElementById('convertButton').addEventListener('click', async () => {
+      const fileInput = document.getElementById('midiFile');
+      
+      // Check if a file is selected
+      if (!fileInput.files.length) {
+        alert('Please select a MIDI file!');
+        return;
+      }
+
+      const midiFile = fileInput.files[0];  // Get the selected file
+      const formData = new FormData();
+      formData.append('midi', midiFile);
+
+      try {
+        // Send the file to the backend
+        const response = await fetch('PandaPiano.pythonanywhere.com', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error: ${response.statusText}`);
+        }
+
+        // Display the result
+        const result = await response.text();
+        document.getElementById('result').textContent = result;
+      } catch (error) {
+        // Handle errors
+        document.getElementById('result').textContent = `An error occurred: ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html>
