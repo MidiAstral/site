@@ -62,7 +62,7 @@
 
       try {
         // Send the file to the backend
-        const response = await fetch('PandaPiano.pythonanywhere.com', {
+        const response = await fetch('PandaPiano.pythonanywhere.com/convert', {
           method: 'POST',
           body: formData,
         });
