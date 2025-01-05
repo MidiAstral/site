@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MIDI to Text Converter</title>
+    <title>File to Text Converter</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -44,31 +44,32 @@
 </head>
 <body>
     <div class="container">
-        <h1>MIDI to Text Converter</h1>
+        <h1>File to Text Converter</h1>
         <div class="form-group">
-            <input type="file" id="midiFile">
+            <input type="file" id="fileInput">
         </div>
         <div class="form-group">
-            <button onclick="convertMidi()">Convert</button>
+            <button onclick="convertFile()">Convert</button>
         </div>
-        <textarea id="output" readonly placeholder="Converted MIDI text will appear here..."></textarea>
+        <textarea id="output" readonly placeholder="Converted file content will appear here..."></textarea>
     </div>
 
     <script>
-        async function convertMidi() {
-            const fileInput = document.getElementById('midiFile');
+        async function convertFile() {
+            const fileInput = document.getElementById('fileInput');
             const outputArea = document.getElementById('output');
-            
+
             if (!fileInput.files.length) {
-                alert('Please select a MIDI file first');
+                alert('Please select a file first');
                 return;
             }
 
+            const file = fileInput.files[0];
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            formData.append('file', file);
 
             try {
-                // IMPORTANT: Replace 'yourusername' with your PythonAnywhere username
+                // IMPORTANT: Replace 'yourusername' with your PythonAnywhere username or API endpoint
                 const response = await fetch('https://PandaPianoConverter.pythonanywhere.com/convert', {
                     method: 'POST',
                     body: formData
